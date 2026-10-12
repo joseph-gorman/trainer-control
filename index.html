@@ -11,29 +11,29 @@
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
   </style>
 </head>
-<body class="p-4 md:p-8 max-w-4xl mx-auto">
+<body class="p-4 md:p-8 max-w-5xl mx-auto">
 
   <!-- Header -->
   <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-6 border-b border-slate-800 gap-4">
     <div>
       <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-        <span class="w-3 h-3 rounded-full bg-cyan-400"></span> CadenceCoreV3
+        <span class="w-3 h-3 rounded-full bg-cyan-400"></span> CadenceCore
       </h1>
-      <p class="text-xs text-slate-400 mt-1">Direct FTMS Trainer & Heart Rate Zone 2 Controller</p>
+      <p class="text-xs text-slate-400 mt-1">Direct FTMS Trainer, Zone 2 HR Controller & Cadence Monitor</p>
     </div>
     
     <!-- Pairing Mode Selector -->
     <div class="flex items-center gap-2 bg-slate-900/80 p-2 rounded-lg border border-slate-800 text-xs">
       <span class="text-slate-400">Scan Mode:</span>
       <select id="scanMode" class="bg-slate-800 text-cyan-300 font-medium rounded px-2 py-1 outline-none border border-slate-700">
-        <option value="all" selected>Show All BLE Devices (Best for Van Rysel / iPad)</option>
-        <option value="filtered">Filtered FTMS (0x1826 Only)</option>
+        <option value="all" selected>Show All BLE Devices (iPad/Bluefy Safe)</option>
+        <option value="filtered">Filtered Service UUIDs Only</option>
       </select>
     </div>
   </header>
 
-  <!-- Connection Controls -->
-  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 my-6">
+  <!-- Connection Controls Grid (3 Devices) -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 my-6">
     <!-- Trainer Card -->
     <div class="card p-4 flex flex-col justify-between">
       <div class="flex justify-between items-center mb-3">
@@ -41,10 +41,10 @@
         <span id="trainerStatus" class="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">Disconnected</span>
       </div>
       <div class="flex gap-2">
-        <button id="btnConnectTrainer" onclick="handleConnectTrainer()" class="flex-1 bg-cyan-600 hover:bg-cyan-500 text-white font-medium py-2 px-4 rounded text-sm transition">
+        <button id="btnConnectTrainer" onclick="handleConnectTrainer()" class="flex-1 bg-cyan-600 hover:bg-cyan-500 text-white font-medium py-2 px-3 rounded text-xs transition">
           Connect Trainer
         </button>
-        <button id="btnDisconnectTrainer" onclick="disconnectTrainer()" disabled class="bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 py-2 px-3 rounded text-sm transition">
+        <button id="btnDisconnectTrainer" onclick="disconnectTrainer()" disabled class="bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 py-2 px-2.5 rounded text-xs transition">
           Disconnect
         </button>
       </div>
@@ -53,14 +53,30 @@
     <!-- HR Monitor Card -->
     <div class="card p-4 flex flex-col justify-between">
       <div class="flex justify-between items-center mb-3">
-        <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Heart Rate Sensor (0x180D)</span>
+        <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Heart Rate (0x180D)</span>
         <span id="hrStatus" class="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">Disconnected</span>
       </div>
       <div class="flex gap-2">
-        <button id="btnConnectHR" onclick="handleConnectHR()" class="flex-1 bg-rose-600 hover:bg-rose-500 text-white font-medium py-2 px-4 rounded text-sm transition">
-          Connect HR Monitor
+        <button id="btnConnectHR" onclick="handleConnectHR()" class="flex-1 bg-rose-600 hover:bg-rose-500 text-white font-medium py-2 px-3 rounded text-xs transition">
+          Connect HR
         </button>
-        <button id="btnDisconnectHR" onclick="disconnectHR()" disabled class="bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 py-2 px-3 rounded text-sm transition">
+        <button id="btnDisconnectHR" onclick="disconnectHR()" disabled class="bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 py-2 px-2.5 rounded text-xs transition">
+          Disconnect
+        </button>
+      </div>
+    </div>
+
+    <!-- Cadence Sensor Card -->
+    <div class="card p-4 flex flex-col justify-between">
+      <div class="flex justify-between items-center mb-3">
+        <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Cadence (CSC 0x1816)</span>
+        <span id="cadenceStatus" class="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">Disconnected</span>
+      </div>
+      <div class="flex gap-2">
+        <button id="btnConnectCadence" onclick="handleConnectCadence()" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 px-3 rounded text-xs transition">
+          Connect Cadence
+        </button>
+        <button id="btnDisconnectCadence" onclick="disconnectCadence()" disabled class="bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 py-2 px-2.5 rounded text-xs transition">
           Disconnect
         </button>
       </div>
@@ -82,440 +98,8 @@
     <div class="card p-4 text-center">
       <span class="text-xs text-emerald-400 font-medium">CADENCE</span>
       <div class="text-3xl sm:text-4xl font-bold mt-1 text-white mono"><span id="valCadence">--</span> <span class="text-xs text-slate-500 font-normal">RPM</span></div>
-      <div class="text-[10px] mt-1 text-slate-500">Crank Speed</div>
+      <div id="cadenceSource" class="text-[10px] mt-1 text-slate-500">No Source</div>
     </div>
     <div class="card p-4 text-center">
       <span class="text-xs text-amber-400 font-medium">RESISTANCE</span>
-      <div class="text-3xl sm:text-4xl font-bold mt-1 text-white mono"><span id="valResistance">30</span><span class="text-xs text-slate-500 font-normal">%</span></div>
-      <div class="text-[10px] mt-1 text-slate-500">Brake Tension</div>
-    </div>
-  </div>
-
-  <!-- Resistance Control Console -->
-  <div class="card p-6 mb-6">
-    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
-      <div>
-        <h2 class="text-base font-semibold text-white">Brake Resistance Dial</h2>
-        <p class="text-xs text-slate-400">Controls trainer brake directly via FTMS OpCode 0x04 without shifting gears.</p>
-      </div>
-      <!-- Mode Tabs -->
-      <div class="flex bg-slate-900 p-1 rounded-lg border border-slate-800 text-xs">
-        <button id="tabManual" onclick="switchMode('manual')" class="px-3 py-1.5 rounded font-medium bg-cyan-600 text-white">Manual Dial</button>
-        <button id="tabCruise" onclick="switchMode('cruise')" class="px-3 py-1.5 rounded font-medium text-slate-400 hover:text-white">Auto HR Zone 2</button>
-      </div>
-    </div>
-
-    <!-- Mode A: Manual Dial -->
-    <div id="panelManual" class="space-y-6">
-      <div class="flex items-center justify-between gap-4">
-        <input type="range" id="resSlider" min="0" max="100" value="30" step="1" oninput="onSliderChange(this.value)" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400">
-      </div>
-      <div class="flex flex-wrap justify-between items-center gap-2">
-        <div class="flex gap-2">
-          <button onclick="adjustResistance(-5)" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded text-xs font-semibold mono">-5%</button>
-          <button onclick="adjustResistance(-1)" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded text-xs font-semibold mono">-1%</button>
-          <button onclick="adjustResistance(1)" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded text-xs font-semibold mono">+1%</button>
-          <button onclick="adjustResistance(5)" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded text-xs font-semibold mono">+5%</button>
-        </div>
-        <div class="flex gap-2">
-          <button onclick="setResistance(15)" class="bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-cyan-300 px-2.5 py-1 rounded text-xs">15% Warmup</button>
-          <button onclick="setResistance(30)" class="bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-cyan-300 px-2.5 py-1 rounded text-xs">30% Cruise</button>
-          <button onclick="setResistance(45)" class="bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-cyan-300 px-2.5 py-1 rounded text-xs">45% Tempo</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Mode B: Auto HR Cruise -->
-    <div id="panelCruise" class="hidden space-y-4">
-      <div class="p-4 bg-slate-900/60 rounded-lg border border-slate-800 text-xs space-y-3">
-        <p class="text-slate-300">Auto-adjusts trainer resistance by &plusmn;1% every 10 seconds to hold heart rate in your Zone 2 window.</p>
-        <div class="flex items-center gap-4">
-          <div>
-            <label class="block text-slate-500 mb-1">Target Min BPM</label>
-            <input type="number" id="targetMinHR" value="135" class="bg-slate-800 border border-slate-700 rounded px-2 py-1 w-20 text-white font-mono">
-          </div>
-          <div>
-            <label class="block text-slate-500 mb-1">Target Max BPM</label>
-            <input type="number" id="targetMaxHR" value="145" class="bg-slate-800 border border-slate-700 rounded px-2 py-1 w-20 text-white font-mono">
-          </div>
-          <div class="pt-4">
-            <button id="btnToggleCruise" onclick="toggleCruise()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-1.5 px-4 rounded text-xs transition">
-              Start Auto Cruise
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Telemetry Diagnostic Terminal -->
-  <div class="card p-4">
-    <div class="flex justify-between items-center mb-2">
-      <span class="text-xs font-semibold text-slate-400">Bluetooth Telemetry & Diagnostics</span>
-      <button onclick="clearLogs()" class="text-[10px] text-slate-500 hover:text-slate-300">Clear</button>
-    </div>
-    <div id="consoleLog" class="h-44 overflow-y-auto bg-slate-950 p-3 rounded font-mono text-[11px] leading-relaxed text-slate-400 space-y-1">
-      <div>[Ready] Open this page on Chrome (Mac) or Bluefy (iPad). Plug in trainer, turn cranks, and pair.</div>
-    </div>
-  </div>
-
-  <script>
-    // UUID Constants
-    const FTMS_SERVICE_UUID = '00001826-0000-1000-8000-00805f9b34fb';
-    const CONTROL_POINT_UUID = '00002ad9-0000-1000-8000-00805f9b34fb';
-    const INDOOR_BIKE_DATA_UUID = '00002ad2-0000-1000-8000-00805f9b34fb';
-    const HR_SERVICE_UUID = '0000180d-0000-1000-8000-00805f9b34fb';
-    const HR_MEASUREMENT_UUID = '00002a37-0000-1000-8000-00805f9b34fb';
-
-    // State Variables
-    let trainerDevice = null;
-    let trainerServer = null;
-    let controlPointChar = null;
-    let hrDevice = null;
-    let hrServer = null;
-
-    let currentResistance = 30;
-    let latestHR = null;
-    let autoCruiseActive = false;
-    let cruiseTimer = null;
-
-    // Logging Utility
-    function log(msg, type = 'info') {
-      const consoleBox = document.getElementById('consoleLog');
-      const time = new Date().toLocaleTimeString();
-      const div = document.createElement('div');
-      
-      if (type === 'err') {
-        div.className = 'text-rose-400 font-semibold';
-      } else if (type === 'success') {
-        div.className = 'text-emerald-400';
-      } else if (type === 'warn') {
-        div.className = 'text-amber-300';
-      } else {
-        div.className = 'text-slate-400';
-      }
-
-      div.textContent = `[${time}] ${msg}`;
-      consoleBox.appendChild(div);
-      consoleBox.scrollTop = consoleBox.scrollHeight;
-    }
-
-    function parseError(err) {
-      if (!err) return "No error message returned (undefined). On iOS/Bluefy, check if dialog was dismissed or background app holds connection.";
-      if (typeof err === 'string') return err;
-      const parts = [];
-      if (err.name) parts.push(`[${err.name}]`);
-      if (err.message) parts.push(err.message);
-      if (parts.length > 0) return parts.join(' ');
-      try {
-        return JSON.stringify(err, Object.getOwnPropertyNames(err));
-      } catch (e) {
-        return String(err);
-      }
-    }
-
-    // Connect Trainer
-    async function handleConnectTrainer() {
-      const btn = document.getElementById('btnConnectTrainer');
-      btn.disabled = true;
-      btn.textContent = 'Scanning...';
-
-      const scanMode = document.getElementById('scanMode').value;
-      log(`Opening device scan (${scanMode === 'all' ? 'Show All Devices' : 'Filtered FTMS'})...`);
-
-      try {
-        let options;
-        if (scanMode === 'all') {
-          options = {
-            acceptAllDevices: true,
-            optionalServices: [
-              FTMS_SERVICE_UUID,
-              '00001818-0000-1000-8000-00805f9b34fb', // Cycling Power Service
-              '00001816-0000-1000-8000-00805f9b34fb'  // Cycling Speed & Cadence
-            ]
-          };
-        } else {
-          options = {
-            filters: [{ services: [FTMS_SERVICE_UUID] }],
-            optionalServices: [FTMS_SERVICE_UUID, '00001818-0000-1000-8000-00805f9b34fb']
-          };
-        }
-
-        trainerDevice = await navigator.bluetooth.requestDevice(options);
-        log(`Device selected: ${trainerDevice.name || 'Unnamed Trainer'}. Connecting to GATT...`);
-        
-        trainerDevice.addEventListener('gattserverdisconnected', onTrainerDisconnected);
-        trainerServer = await trainerDevice.gatt.connect();
-        log("GATT connected. Accessing Fitness Machine Service (0x1826)...");
-
-        const ftmsService = await trainerServer.getPrimaryService(FTMS_SERVICE_UUID);
-        controlPointChar = await ftmsService.getCharacteristic(CONTROL_POINT_UUID);
-
-        // Crucial FTMS Step: Enable indications on Control Point prior to writing OpCodes
-        try {
-          log("Configuring CCCD indications on Control Point (0x2AD9)...");
-          await controlPointChar.startNotifications();
-          controlPointChar.addEventListener('characteristicvaluechanged', (event) => {
-            const v = event.target.value;
-            const resCode = v.getUint8(0);
-            const reqOp = v.byteLength > 1 ? v.getUint8(1) : 0;
-            const status = v.byteLength > 2 ? v.getUint8(2) : 0;
-            log(`Trainer Control Point Response -> OpCode: 0x${reqOp.toString(16)}, Status: 0x${status.toString(16)}`);
-          });
-        } catch (e) {
-          log(`Control Point notification setup warning: ${e.message}`, 'warn');
-        }
-
-        // OpCode 0x00: Request Control
-        log("Sending OpCode 0x00 (Request Machine Control)...");
-        await controlPointChar.writeValueWithResponse(new Uint8Array([0x00]));
-        log("Control acquired successfully!", "success");
-
-        // Subscribe to Live Telemetry (0x2AD2)
-        try {
-          const bikeDataChar = await ftmsService.getCharacteristic(INDOOR_BIKE_DATA_UUID);
-          await bikeDataChar.startNotifications();
-          bikeDataChar.addEventListener('characteristicvaluechanged', handleIndoorBikeData);
-          log("Subscribed to live Indoor Bike Data (Watts/Cadence).", "success");
-        } catch (e) {
-          log(`Telemetry characteristic (0x2AD2) warning: ${e.message}`, 'warn');
-        }
-
-        // Set Initial Resistance
-        await setResistance(currentResistance);
-
-        document.getElementById('trainerStatus').textContent = trainerDevice.name || 'Connected';
-        document.getElementById('trainerStatus').className = 'text-xs px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-400 border border-cyan-800';
-        document.getElementById('btnDisconnectTrainer').disabled = false;
-        btn.textContent = 'Trainer Connected';
-
-      } catch (err) {
-        log(`Trainer connection failed: ${parseError(err)}`, 'err');
-        btn.disabled = false;
-        btn.textContent = 'Connect Trainer';
-      }
-    }
-
-    // Connect Heart Rate
-    async function handleConnectHR() {
-      const btn = document.getElementById('btnConnectHR');
-      btn.disabled = true;
-      btn.textContent = 'Scanning...';
-      log("Scanning for Heart Rate Monitor (0x180D)...");
-
-      try {
-        hrDevice = await navigator.bluetooth.requestDevice({
-          filters: [{ services: [HR_SERVICE_UUID] }]
-        });
-
-        log(`Device selected: ${hrDevice.name || 'HR Sensor'}. Connecting...`);
-        hrDevice.addEventListener('gattserverdisconnected', onHRDisconnected);
-        hrServer = await hrDevice.gatt.connect();
-
-        const hrService = await hrServer.getPrimaryService(HR_SERVICE_UUID);
-        const hrChar = await hrService.getCharacteristic(HR_MEASUREMENT_UUID);
-
-        await hrChar.startNotifications();
-        hrChar.addEventListener('characteristicvaluechanged', handleHRData);
-        log("Subscribed to live Heart Rate stream.", "success");
-
-        document.getElementById('hrStatus').textContent = hrDevice.name || 'Connected';
-        document.getElementById('hrStatus').className = 'text-xs px-2 py-0.5 rounded-full bg-rose-950 text-rose-400 border border-rose-800';
-        document.getElementById('btnDisconnectHR').disabled = false;
-        btn.textContent = 'HR Connected';
-
-      } catch (err) {
-        log(`HR connection failed: ${parseError(err)}`, 'err');
-        btn.disabled = false;
-        btn.textContent = 'Connect HR Monitor';
-      }
-    }
-
-    // Telemetry Parsers
-    function handleIndoorBikeData(event) {
-      const v = event.target.value;
-      if (v.byteLength < 4) return;
-
-      const flags = v.getUint16(0, true);
-      let offset = 2;
-
-      // Speed (uint16, 0.01 km/h)
-      if ((flags & 0x01) === 0) offset += 2;
-      // Average Speed
-      if (flags & 0x02) offset += 2;
-
-      // Cadence (uint16, 0.5 RPM)
-      if (flags & 0x04) {
-        const rawCadence = v.getUint16(offset, true);
-        const rpm = Math.round(rawCadence * 0.5);
-        document.getElementById('valCadence').textContent = rpm;
-        offset += 2;
-      }
-
-      // Average Cadence
-      if (flags & 0x08) offset += 2;
-      // Total Distance
-      if (flags & 0x10) offset += 3;
-      // Resistance Level
-      if (flags & 0x20) offset += 2;
-
-      // Instantaneous Power (sint16, Watts)
-      if (flags & 0x40 && offset + 2 <= v.byteLength) {
-        const watts = v.getInt16(offset, true);
-        document.getElementById('valPower').textContent = watts;
-      }
-    }
-
-    function handleHRData(event) {
-      const v = event.target.value;
-      const flags = v.getUint8(0);
-      let bpm;
-      if (flags & 0x01) {
-        bpm = v.getUint16(1, true); // 16-bit HR
-      } else {
-        bpm = v.getUint8(1);        // 8-bit HR
-      }
-
-      latestHR = bpm;
-      document.getElementById('valHR').textContent = bpm;
-
-      // Visual Zone Check
-      const badge = document.getElementById('zoneBadge');
-      if (bpm < 135) {
-        badge.textContent = 'Below Zone 2 (<135)';
-        badge.className = 'text-[10px] mt-1 text-sky-400 font-medium';
-      } else if (bpm <= 145) {
-        badge.textContent = 'Target Zone 2 (135-145)';
-        badge.className = 'text-[10px] mt-1 text-emerald-400 font-bold';
-      } else {
-        badge.textContent = 'Above Zone 2 (>145)';
-        badge.className = 'text-[10px] mt-1 text-rose-400 font-medium';
-      }
-    }
-
-    // Resistance Control (FTMS OpCode 0x04)
-    async function setResistance(pct) {
-      pct = Math.max(0, Math.min(100, Math.round(pct)));
-      currentResistance = pct;
-      document.getElementById('valResistance').textContent = pct;
-      document.getElementById('resSlider').value = pct;
-
-      if (!controlPointChar || !trainerServer || !trainerServer.connected) return;
-
-      try {
-        // FTMS OpCode 0x04: Set Target Resistance Level (0.1% units)
-        const raw = pct * 10;
-        const payload = new Uint8Array([0x04, raw & 0xFF, (raw >> 8) & 0xFF]);
-        await controlPointChar.writeValueWithResponse(payload);
-        log(`Resistance command applied: ${pct}%`);
-      } catch (err) {
-        log(`Resistance update error: ${parseError(err)}`, 'warn');
-      }
-    }
-
-    function adjustResistance(delta) {
-      setResistance(currentResistance + delta);
-    }
-
-    function onSliderChange(val) {
-      setResistance(parseInt(val, 10));
-    }
-
-    // Disconnect Handlers
-    function disconnectTrainer() {
-      if (trainerDevice && trainerDevice.gatt.connected) {
-        trainerDevice.gatt.disconnect();
-      }
-    }
-
-    function onTrainerDisconnected() {
-      log("Trainer disconnected.", "warn");
-      document.getElementById('trainerStatus').textContent = 'Disconnected';
-      document.getElementById('trainerStatus').className = 'text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700';
-      const btn = document.getElementById('btnConnectTrainer');
-      btn.disabled = false;
-      btn.textContent = 'Connect Trainer';
-      document.getElementById('btnDisconnectTrainer').disabled = true;
-      document.getElementById('valPower').textContent = '--';
-      document.getElementById('valCadence').textContent = '--';
-      controlPointChar = null;
-    }
-
-    function disconnectHR() {
-      if (hrDevice && hrDevice.gatt.connected) {
-        hrDevice.gatt.disconnect();
-      }
-    }
-
-    function onHRDisconnected() {
-      log("HR Monitor disconnected.", "warn");
-      document.getElementById('hrStatus').textContent = 'Disconnected';
-      document.getElementById('hrStatus').className = 'text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700';
-      const btn = document.getElementById('btnConnectHR');
-      btn.disabled = false;
-      btn.textContent = 'Connect HR Monitor';
-      document.getElementById('btnDisconnectHR').disabled = true;
-      document.getElementById('valHR').textContent = '--';
-      document.getElementById('zoneBadge').textContent = 'Standby';
-      document.getElementById('zoneBadge').className = 'text-[10px] mt-1 text-slate-500';
-      latestHR = null;
-    }
-
-    // UI Tab Modes
-    function switchMode(mode) {
-      if (mode === 'manual') {
-        document.getElementById('panelManual').classList.remove('hidden');
-        document.getElementById('panelCruise').classList.add('hidden');
-        document.getElementById('tabManual').className = 'px-3 py-1.5 rounded font-medium bg-cyan-600 text-white';
-        document.getElementById('tabCruise').className = 'px-3 py-1.5 rounded font-medium text-slate-400 hover:text-white';
-      } else {
-        document.getElementById('panelManual').classList.add('hidden');
-        document.getElementById('panelCruise').classList.remove('hidden');
-        document.getElementById('tabCruise').className = 'px-3 py-1.5 rounded font-medium bg-cyan-600 text-white';
-        document.getElementById('tabManual').className = 'px-3 py-1.5 rounded font-medium text-slate-400 hover:text-white';
-      }
-    }
-
-    // Auto Zone 2 Closed-Loop Cruise
-    function toggleCruise() {
-      const btn = document.getElementById('btnToggleCruise');
-      if (autoCruiseActive) {
-        clearInterval(cruiseTimer);
-        autoCruiseActive = false;
-        btn.textContent = 'Start Auto Cruise';
-        btn.className = 'bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-1.5 px-4 rounded text-xs transition';
-        log("Auto HR Cruise disabled.");
-      } else {
-        if (!latestHR) {
-          alert("Connect Heart Rate monitor first to use Auto Cruise.");
-          return;
-        }
-        autoCruiseActive = true;
-        btn.textContent = 'Stop Auto Cruise';
-        btn.className = 'bg-rose-600 hover:bg-rose-500 text-white font-medium py-1.5 px-4 rounded text-xs transition';
-        log("Auto HR Cruise active. Checking every 10 seconds...");
-
-        cruiseTimer = setInterval(() => {
-          if (!latestHR || !trainerServer || !trainerServer.connected) return;
-          const min = parseInt(document.getElementById('targetMinHR').value, 10);
-          const max = parseInt(document.getElementById('targetMaxHR').value, 10);
-
-          if (latestHR < min) {
-            log(`[Cruise Loop] HR (${latestHR}) < ${min} BPM -> Stepping resistance +1%`);
-            adjustResistance(1);
-          } else if (latestHR > max) {
-            log(`[Cruise Loop] HR (${latestHR}) > ${max} BPM -> Stepping resistance -1%`);
-            adjustResistance(-1);
-          } else {
-            log(`[Cruise Loop] HR (${latestHR}) perfectly inside Zone 2 (${min}-${max} BPM). Holding.`);
-          }
-        }, 10000);
-      }
-    }
-
-    function clearLogs() {
-      document.getElementById('consoleLog').innerHTML = '';
-    }
-  </script>
-</body>
-</html>
+      <div class="text-3xl sm:text-4xl font-bold mt-1 text-white mono"><span id="valResistance">30</span><span class="text-xs text
