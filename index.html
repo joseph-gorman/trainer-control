@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>CadenceCore — Direct Trainer & Zone 2 Controller</title>
+  <title>CadenceCore V5 — Direct Trainer & Zone 2 Controller</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body { background-color: #0b1120; color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -17,9 +17,9 @@
   <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-6 border-b border-slate-800 gap-4">
     <div>
       <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-        <span class="w-3 h-3 rounded-full bg-cyan-400"></span> CadenceCoreV4
+        <span class="w-3 h-3 rounded-full bg-cyan-400"></span> CadenceCore <span class="text-xs px-2 py-0.5 rounded bg-cyan-950 text-cyan-400 border border-cyan-800 font-mono">V5</span>
       </h1>
-      <p class="text-xs text-slate-400 mt-1">Direct FTMS Trainer, Zone 2 HR Controller & Cadence Monitor</p>
+      <p class="text-xs text-slate-400 mt-1">Direct FTMS Trainer, Zone 2 HR Controller & Dedicated CSC Cadence</p>
     </div>
     
     <!-- Pairing Mode Selector -->
@@ -32,7 +32,7 @@
     </div>
   </header>
 
-  <!-- Connection Controls Grid (3 Devices) -->
+  <!-- Connection Controls Grid (Trainer, HR, Cadence) -->
   <div class="grid grid-cols-1 md:grid-cols-3 gap-4 my-6">
     <!-- Trainer Card -->
     <div class="card p-4 flex flex-col justify-between">
@@ -102,4 +102,510 @@
     </div>
     <div class="card p-4 text-center">
       <span class="text-xs text-amber-400 font-medium">RESISTANCE</span>
-      <div class="text-3xl sm:text-4xl font-bold mt-1 text-white mono"><span id="valResistance">30</span><span class="text-xs text
+      <div class="text-3xl sm:text-4xl font-bold mt-1 text-white mono"><span id="valResistance">30</span><span class="text-xs text-slate-500 font-normal">%</span></div>
+      <div class="text-[10px] mt-1 text-slate-500">Brake Tension</div>
+    </div>
+  </div>
+
+  <!-- Resistance Control Console -->
+  <div class="card p-6 mb-6">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
+      <div>
+        <h2 class="text-base font-semibold text-white">Brake Resistance Dial</h2>
+        <p class="text-xs text-slate-400">Controls trainer brake directly via FTMS OpCode 0x04.</p>
+      </div>
+      <div class="flex bg-slate-900 p-1 rounded-lg border border-slate-800 text-xs">
+        <button id="tabManual" onclick="switchMode('manual')" class="px-3 py-1.5 rounded font-medium bg-cyan-600 text-white">Manual Dial</button>
+        <button id="tabCruise" onclick="switchMode('cruise')" class="px-3 py-1.5 rounded font-medium text-slate-400 hover:text-white">Auto HR Zone 2</button>
+      </div>
+    </div>
+
+    <!-- Mode A: Manual Dial -->
+    <div id="panelManual" class="space-y-6">
+      <div class="flex items-center justify-between gap-4">
+        <input type="range" id="resSlider" min="0" max="100" value="30" step="1" oninput="onSliderChange(this.value)" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400">
+      </div>
+      <div class="flex flex-wrap justify-between items-center gap-2">
+        <div class="flex gap-2">
+          <button onclick="adjustResistance(-5)" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded text-xs font-semibold mono">-5%</button>
+          <button onclick="adjustResistance(-1)" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded text-xs font-semibold mono">-1%</button>
+          <button onclick="adjustResistance(1)" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded text-xs font-semibold mono">+1%</button>
+          <button onclick="adjustResistance(5)" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded text-xs font-semibold mono">+5%</button>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="setResistance(15)" class="bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-cyan-300 px-2.5 py-1 rounded text-xs">15% Warmup</button>
+          <button onclick="setResistance(30)" class="bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-cyan-300 px-2.5 py-1 rounded text-xs">30% Cruise</button>
+          <button onclick="setResistance(45)" class="bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-cyan-300 px-2.5 py-1 rounded text-xs">45% Tempo</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mode B: Auto HR Cruise -->
+    <div id="panelCruise" class="hidden space-y-4">
+      <div class="p-4 bg-slate-900/60 rounded-lg border border-slate-800 text-xs space-y-3">
+        <p class="text-slate-300">Auto-adjusts trainer resistance by &plusmn;1% every 10 seconds to hold heart rate in your Zone 2 window.</p>
+        <div class="flex items-center gap-4">
+          <div>
+            <label class="block text-slate-500 mb-1">Target Min BPM</label>
+            <input type="number" id="targetMinHR" value="135" class="bg-slate-800 border border-slate-700 rounded px-2 py-1 w-20 text-white font-mono">
+          </div>
+          <div>
+            <label class="block text-slate-500 mb-1">Target Max BPM</label>
+            <input type="number" id="targetMaxHR" value="145" class="bg-slate-800 border border-slate-700 rounded px-2 py-1 w-20 text-white font-mono">
+          </div>
+          <div class="pt-4">
+            <button id="btnToggleCruise" onclick="toggleCruise()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-1.5 px-4 rounded text-xs transition">
+              Start Auto Cruise
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Telemetry Diagnostics Console -->
+  <div class="card p-4">
+    <div class="flex justify-between items-center mb-2">
+      <span class="text-xs font-semibold text-slate-400">Bluetooth Telemetry & Diagnostics</span>
+      <button onclick="clearLogs()" class="text-[10px] text-slate-500 hover:text-slate-300">Clear</button>
+    </div>
+    <div id="consoleLog" class="h-44 overflow-y-auto bg-slate-950 p-3 rounded font-mono text-[11px] leading-relaxed text-slate-400 space-y-1">
+      <div>[CadenceCore V5 Loaded] Ready. Plug in trainer, wake sensors, and pair devices.</div>
+    </div>
+  </div>
+
+  <script>
+    // Standard Bluetooth SIG UUIDs
+    const FTMS_SERVICE_UUID     = '00001826-0000-1000-8000-00805f9b34fb';
+    const CONTROL_POINT_UUID    = '00002ad9-0000-1000-8000-00805f9b34fb';
+    const INDOOR_BIKE_DATA_UUID = '00002ad2-0000-1000-8000-00805f9b34fb';
+
+    const HR_SERVICE_UUID       = '0000180d-0000-1000-8000-00805f9b34fb';
+    const HR_MEASUREMENT_UUID   = '00002a37-0000-1000-8000-00805f9b34fb';
+
+    const CSC_SERVICE_UUID      = '00001816-0000-1000-8000-00805f9b34fb';
+    const CSC_MEASUREMENT_UUID  = '00002a5b-0000-1000-8000-00805f9b34fb';
+
+    // State Variables
+    let trainerDevice = null, trainerServer = null, controlPointChar = null;
+    let hrDevice = null, hrServer = null;
+    let cadenceDevice = null, cadenceServer = null;
+
+    let currentResistance = 30;
+    let latestHR = null;
+    let autoCruiseActive = false;
+    let cruiseTimer = null;
+
+    // CSC Differential Calculations
+    let prevCrankRevs = null;
+    let prevCrankEventTime = null;
+    let cadenceTimeout = null;
+    let hasExternalCadence = false;
+
+    // Logging Utility
+    function log(msg, type = 'info') {
+      const consoleBox = document.getElementById('consoleLog');
+      const time = new Date().toLocaleTimeString();
+      const div = document.createElement('div');
+      
+      if (type === 'err') div.className = 'text-rose-400 font-semibold';
+      else if (type === 'success') div.className = 'text-emerald-400';
+      else if (type === 'warn') div.className = 'text-amber-300';
+      else div.className = 'text-slate-400';
+
+      div.textContent = `[${time}] ${msg}`;
+      consoleBox.appendChild(div);
+      consoleBox.scrollTop = consoleBox.scrollHeight;
+    }
+
+    function parseError(err) {
+      if (!err) return "Error undefined. (Dialog dismissed or BLE exclusivity lock)";
+      if (typeof err === 'string') return err;
+      if (err.name || err.message) return `[${err.name || 'Error'}] ${err.message || ''}`;
+      try { return JSON.stringify(err); } catch { return String(err); }
+    }
+
+    // 1. SMART TRAINER (FTMS)
+    async function handleConnectTrainer() {
+      const btn = document.getElementById('btnConnectTrainer');
+      btn.disabled = true;
+      btn.textContent = 'Scanning...';
+      const scanMode = document.getElementById('scanMode').value;
+
+      try {
+        const options = (scanMode === 'all') 
+          ? { 
+              acceptAllDevices: true, 
+              optionalServices: [
+                FTMS_SERVICE_UUID, 
+                '00001818-0000-1000-8000-00805f9b34fb', // Cycling Power Service
+                '00001816-0000-1000-8000-00805f9b34fb'  // Cycling Speed & Cadence
+              ] 
+            }
+          : { 
+              filters: [{ services: [FTMS_SERVICE_UUID] }], 
+              optionalServices: [
+                FTMS_SERVICE_UUID, 
+                '00001818-0000-1000-8000-00805f9b34fb'
+              ] 
+            };
+
+        trainerDevice = await navigator.bluetooth.requestDevice(options);
+        log(`Trainer selected: ${trainerDevice.name || 'Unnamed Trainer'}. Connecting...`);
+        
+        trainerDevice.addEventListener('gattserverdisconnected', onTrainerDisconnected);
+        trainerServer = await trainerDevice.gatt.connect();
+
+        const ftmsService = await trainerServer.getPrimaryService(FTMS_SERVICE_UUID);
+        controlPointChar = await ftmsService.getCharacteristic(CONTROL_POINT_UUID);
+
+        // Required for Van Rysel: subscribe to indications prior to writing OpCodes
+        try {
+          await controlPointChar.startNotifications();
+          controlPointChar.addEventListener('characteristicvaluechanged', (event) => {
+            const v = event.target.value;
+            const resCode = v.getUint8(0);
+            const reqOp = v.byteLength > 1 ? v.getUint8(1) : 0;
+            const status = v.byteLength > 2 ? v.getUint8(2) : 0;
+            log(`Trainer Control Point Response -> OpCode: 0x${reqOp.toString(16)}, Status: 0x${status.toString(16)}`);
+          });
+        } catch (e) {
+          log(`Control Point notification setup warning: ${e.message}`, 'warn');
+        }
+
+        // OpCode 0x00: Request Machine Control
+        await controlPointChar.writeValueWithResponse(new Uint8Array([0x00]));
+        log("Trainer control acquired.", "success");
+
+        // Subscribe to Indoor Bike Data (Watts/Cadence)
+        try {
+          const bikeDataChar = await ftmsService.getCharacteristic(INDOOR_BIKE_DATA_UUID);
+          await bikeDataChar.startNotifications();
+          bikeDataChar.addEventListener('characteristicvaluechanged', handleIndoorBikeData);
+          log("Subscribed to live Indoor Bike Data.", "success");
+        } catch (e) {
+          log(`Trainer telemetry warning: ${e.message}`, 'warn');
+        }
+
+        await setResistance(currentResistance);
+        document.getElementById('trainerStatus').textContent = trainerDevice.name || 'Connected';
+        document.getElementById('trainerStatus').className = 'text-xs px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-400 border border-cyan-800';
+        document.getElementById('btnDisconnectTrainer').disabled = false;
+        btn.textContent = 'Trainer Connected';
+
+      } catch (err) {
+        log(`Trainer connection failed: ${parseError(err)}`, 'err');
+        btn.disabled = false;
+        btn.textContent = 'Connect Trainer';
+      }
+    }
+
+    // 2. HEART RATE SENSOR (0x180D)
+    async function handleConnectHR() {
+      const btn = document.getElementById('btnConnectHR');
+      btn.disabled = true;
+      btn.textContent = 'Scanning...';
+      const scanMode = document.getElementById('scanMode').value;
+
+      try {
+        const options = (scanMode === 'all')
+          ? { acceptAllDevices: true, optionalServices: [HR_SERVICE_UUID] }
+          : { filters: [{ services: [HR_SERVICE_UUID] }] };
+
+        hrDevice = await navigator.bluetooth.requestDevice(options);
+        log(`HR selected: ${hrDevice.name || 'Sensor'}. Connecting...`);
+        
+        hrDevice.addEventListener('gattserverdisconnected', onHRDisconnected);
+        hrServer = await hrDevice.gatt.connect();
+
+        const hrService = await hrServer.getPrimaryService(HR_SERVICE_UUID);
+        const hrChar = await hrService.getCharacteristic(HR_MEASUREMENT_UUID);
+
+        await hrChar.startNotifications();
+        hrChar.addEventListener('characteristicvaluechanged', handleHRData);
+        log("Heart Rate stream active.", "success");
+
+        document.getElementById('hrStatus').textContent = hrDevice.name || 'Connected';
+        document.getElementById('hrStatus').className = 'text-xs px-2 py-0.5 rounded-full bg-rose-950 text-rose-400 border border-rose-800';
+        document.getElementById('btnDisconnectHR').disabled = false;
+        btn.textContent = 'HR Connected';
+
+      } catch (err) {
+        log(`HR connection failed: ${parseError(err)}`, 'err');
+        btn.disabled = false;
+        btn.textContent = 'Connect HR';
+      }
+    }
+
+    // 3. CYCLING SPEED & CADENCE SENSOR (CSC 0x1816)
+    async function handleConnectCadence() {
+      const btn = document.getElementById('btnConnectCadence');
+      btn.disabled = true;
+      btn.textContent = 'Scanning...';
+      const scanMode = document.getElementById('scanMode').value;
+
+      try {
+        const options = (scanMode === 'all')
+          ? { acceptAllDevices: true, optionalServices: [CSC_SERVICE_UUID] }
+          : { filters: [{ services: [CSC_SERVICE_UUID] }] };
+
+        cadenceDevice = await navigator.bluetooth.requestDevice(options);
+        log(`Cadence sensor selected: ${cadenceDevice.name || 'Crank Sensor'}. Connecting...`);
+
+        cadenceDevice.addEventListener('gattserverdisconnected', onCadenceDisconnected);
+        cadenceServer = await cadenceDevice.gatt.connect();
+
+        const cscService = await cadenceServer.getPrimaryService(CSC_SERVICE_UUID);
+        const cscChar = await cscService.getCharacteristic(CSC_MEASUREMENT_UUID);
+
+        await cscChar.startNotifications();
+        cscChar.addEventListener('characteristicvaluechanged', handleCSCData);
+        hasExternalCadence = true;
+        log("Cadence sensor stream active.", "success");
+
+        document.getElementById('cadenceStatus').textContent = cadenceDevice.name || 'Connected';
+        document.getElementById('cadenceStatus').className = 'text-xs px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800';
+        document.getElementById('cadenceSource').textContent = 'Sensor (CSC)';
+        document.getElementById('btnDisconnectCadence').disabled = false;
+        btn.textContent = 'Cadence Connected';
+
+      } catch (err) {
+        log(`Cadence connection failed: ${parseError(err)}`, 'err');
+        btn.disabled = false;
+        btn.textContent = 'Connect Cadence';
+      }
+    }
+
+    // CSC Differential Telemetry Parser (0x2A5B)
+    function handleCSCData(event) {
+      const v = event.target.value;
+      const flags = v.getUint8(0);
+      let offset = 1;
+
+      // Wheel Data Present (Bit 0): uint32 revs + uint16 time (6 bytes)
+      if (flags & 0x01) {
+        offset += 6;
+      }
+
+      // Crank Revolution Data Present (Bit 1)
+      if (flags & 0x02 && offset + 4 <= v.byteLength) {
+        const cumulativeCrankRevs = v.getUint16(offset, true);
+        const lastCrankEventTime = v.getUint16(offset + 2, true); // units of 1/1024s
+
+        if (prevCrankRevs !== null && prevCrankEventTime !== null) {
+          // Handle 16-bit integer rollovers (65535 -> 0)
+          let dRevs = cumulativeCrankRevs - prevCrankRevs;
+          if (dRevs < 0) dRevs += 65536;
+
+          let dTime = lastCrankEventTime - prevCrankEventTime;
+          if (dTime < 0) dTime += 65536;
+
+          if (dTime > 0 && dRevs > 0) {
+            const deltaSeconds = dTime / 1024.0;
+            const rpm = Math.round((dRevs / deltaSeconds) * 60);
+
+            if (rpm >= 0 && rpm < 240) {
+              document.getElementById('valCadence').textContent = rpm;
+              document.getElementById('cadenceSource').textContent = 'Sensor (CSC)';
+            }
+
+            // Zero-cadence watchdog: if crank stops rotating for >2.5s, drop to 0 RPM
+            clearTimeout(cadenceTimeout);
+            cadenceTimeout = setTimeout(() => {
+              if (hasExternalCadence) {
+                document.getElementById('valCadence').textContent = '0';
+              }
+            }, 2500);
+          }
+        }
+
+        prevCrankRevs = cumulativeCrankRevs;
+        prevCrankEventTime = lastCrankEventTime;
+      }
+    }
+
+    // Trainer Telemetry Parser (0x2AD2)
+    function handleIndoorBikeData(event) {
+      const v = event.target.value;
+      if (v.byteLength < 4) return;
+
+      const flags = v.getUint16(0, true);
+      let offset = 2;
+
+      if ((flags & 0x01) === 0) offset += 2; // Instantaneous Speed
+      if (flags & 0x02) offset += 2;          // Average Speed
+
+      // Only display trainer cadence if external crank sensor is not connected
+      if (flags & 0x04) {
+        const rawCadence = v.getUint16(offset, true);
+        const rpm = Math.round(rawCadence * 0.5);
+        if (!hasExternalCadence) {
+          document.getElementById('valCadence').textContent = rpm;
+          document.getElementById('cadenceSource').textContent = 'Trainer (FTMS)';
+        }
+        offset += 2;
+      }
+
+      if (flags & 0x08) offset += 2; // Average Cadence
+      if (flags & 0x10) offset += 3; // Total Distance
+      if (flags & 0x20) offset += 2; // Resistance Level
+
+      // Instantaneous Power (sint16, Watts)
+      if (flags & 0x40 && offset + 2 <= v.byteLength) {
+        const watts = v.getInt16(offset, true);
+        document.getElementById('valPower').textContent = watts;
+      }
+    }
+
+    // Heart Rate Telemetry Parser (0x2A37)
+    function handleHRData(event) {
+      const v = event.target.value;
+      const flags = v.getUint8(0);
+      let bpm = (flags & 0x01) ? v.getUint16(1, true) : v.getUint8(1);
+
+      latestHR = bpm;
+      document.getElementById('valHR').textContent = bpm;
+
+      const badge = document.getElementById('zoneBadge');
+      if (bpm < 135) {
+        badge.textContent = 'Below Zone 2 (<135)';
+        badge.className = 'text-[10px] mt-1 text-sky-400 font-medium';
+      } else if (bpm <= 145) {
+        badge.textContent = 'Target Zone 2 (135-145)';
+        badge.className = 'text-[10px] mt-1 text-emerald-400 font-bold';
+      } else {
+        badge.textContent = 'Above Zone 2 (>145)';
+        badge.className = 'text-[10px] mt-1 text-rose-400 font-medium';
+      }
+    }
+
+    // Resistance Control (FTMS OpCode 0x04)
+    async function setResistance(pct) {
+      pct = Math.max(0, Math.min(100, Math.round(pct)));
+      currentResistance = pct;
+      document.getElementById('valResistance').textContent = pct;
+      document.getElementById('resSlider').value = pct;
+
+      if (!controlPointChar || !trainerServer?.connected) return;
+
+      try {
+        const raw = pct * 10;
+        const payload = new Uint8Array([0x04, raw & 0xFF, (raw >> 8) & 0xFF]);
+        await controlPointChar.writeValueWithResponse(payload);
+        log(`Resistance command applied: ${pct}%`);
+      } catch (err) {
+        log(`Resistance update error: ${parseError(err)}`, 'warn');
+      }
+    }
+
+    function adjustResistance(delta) { setResistance(currentResistance + delta); }
+    function onSliderChange(val) { setResistance(parseInt(val, 10)); }
+
+    // Disconnect Procedures
+    function disconnectTrainer() {
+      if (trainerDevice?.gatt.connected) trainerDevice.gatt.disconnect();
+    }
+    function onTrainerDisconnected() {
+      log("Trainer disconnected.", "warn");
+      document.getElementById('trainerStatus').textContent = 'Disconnected';
+      document.getElementById('trainerStatus').className = 'text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700';
+      const btn = document.getElementById('btnConnectTrainer');
+      btn.disabled = false;
+      btn.textContent = 'Connect Trainer';
+      document.getElementById('btnDisconnectTrainer').disabled = true;
+      document.getElementById('valPower').textContent = '--';
+      if (!hasExternalCadence) {
+        document.getElementById('valCadence').textContent = '--';
+        document.getElementById('cadenceSource').textContent = 'No Source';
+      }
+      controlPointChar = null;
+    }
+
+    function disconnectHR() {
+      if (hrDevice?.gatt.connected) hrDevice.gatt.disconnect();
+    }
+    function onHRDisconnected() {
+      log("HR Monitor disconnected.", "warn");
+      document.getElementById('hrStatus').textContent = 'Disconnected';
+      document.getElementById('hrStatus').className = 'text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700';
+      const btn = document.getElementById('btnConnectHR');
+      btn.disabled = false;
+      btn.textContent = 'Connect HR';
+      document.getElementById('btnDisconnectHR').disabled = true;
+      document.getElementById('valHR').textContent = '--';
+      document.getElementById('zoneBadge').textContent = 'Standby';
+      document.getElementById('zoneBadge').className = 'text-[10px] mt-1 text-slate-500';
+      latestHR = null;
+    }
+
+    function disconnectCadence() {
+      if (cadenceDevice?.gatt.connected) cadenceDevice.gatt.disconnect();
+    }
+    function onCadenceDisconnected() {
+      log("Cadence sensor disconnected.", "warn");
+      hasExternalCadence = false;
+      prevCrankRevs = null;
+      prevCrankEventTime = null;
+      clearTimeout(cadenceTimeout);
+
+      document.getElementById('cadenceStatus').textContent = 'Disconnected';
+      document.getElementById('cadenceStatus').className = 'text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700';
+      const btn = document.getElementById('btnConnectCadence');
+      btn.disabled = false;
+      btn.textContent = 'Connect Cadence';
+      document.getElementById('btnDisconnectCadence').disabled = true;
+      document.getElementById('valCadence').textContent = '--';
+      document.getElementById('cadenceSource').textContent = 'No Source';
+    }
+
+    // Modes & Automation
+    function switchMode(mode) {
+      const isManual = mode === 'manual';
+      document.getElementById('panelManual').classList.toggle('hidden', !isManual);
+      document.getElementById('panelCruise').classList.toggle('hidden', isManual);
+      document.getElementById('tabManual').className = isManual ? 'px-3 py-1.5 rounded font-medium bg-cyan-600 text-white' : 'px-3 py-1.5 rounded font-medium text-slate-400 hover:text-white';
+      document.getElementById('tabCruise').className = !isManual ? 'px-3 py-1.5 rounded font-medium bg-cyan-600 text-white' : 'px-3 py-1.5 rounded font-medium text-slate-400 hover:text-white';
+    }
+
+    function toggleCruise() {
+      const btn = document.getElementById('btnToggleCruise');
+      if (autoCruiseActive) {
+        clearInterval(cruiseTimer);
+        autoCruiseActive = false;
+        btn.textContent = 'Start Auto Cruise';
+        btn.className = 'bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-1.5 px-4 rounded text-xs transition';
+        log("Auto HR Cruise disabled.");
+      } else {
+        if (!latestHR) {
+          alert("Connect Heart Rate monitor first to use Auto Cruise.");
+          return;
+        }
+        autoCruiseActive = true;
+        btn.textContent = 'Stop Auto Cruise';
+        btn.className = 'bg-rose-600 hover:bg-rose-500 text-white font-medium py-1.5 px-4 rounded text-xs transition';
+        log("Auto HR Cruise active. Sampling every 10 seconds...");
+
+        cruiseTimer = setInterval(() => {
+          if (!latestHR || !trainerServer?.connected) return;
+          const min = parseInt(document.getElementById('targetMinHR').value, 10);
+          const max = parseInt(document.getElementById('targetMaxHR').value, 10);
+
+          if (latestHR < min) {
+            log(`[Cruise Loop] HR (${latestHR}) < ${min} BPM -> Resistance +1%`);
+            adjustResistance(1);
+          } else if (latestHR > max) {
+            log(`[Cruise Loop] HR (${latestHR}) > ${max} BPM -> Resistance -1%`);
+            adjustResistance(-1);
+          } else {
+            log(`[Cruise Loop] HR (${latestHR}) inside Zone 2 (${min}-${max} BPM). Holding.`);
+          }
+        }, 10000);
+      }
+    }
+
+    function clearLogs() {
+      document.getElementById('consoleLog').innerHTML = '';
+    }
+  </script>
+</body>
+</html>
